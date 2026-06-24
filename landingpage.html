@@ -1,0 +1,702 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PaperCast: Free Select-to-Speech Reader</title>
+    <link rel="icon" type="image/png" href="papercast-extension/icons/icon48.png">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        zinc: { 950: '#09090b' }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .theme-transition {
+            transition: background-color 0.2s ease, border-color 0.2s ease;
+        }
+        .audio-bar {
+            display: inline-block;
+            width: 2px;
+            height: 10px;
+            background-color: currentColor;
+            animation: bounce 1.2s ease-in-out infinite;
+        }
+        .audio-bar:nth-child(2) { animation-delay: 0.15s; height: 14px; }
+        .audio-bar:nth-child(3) { animation-delay: 0.3s;  height: 11px; }
+        .audio-bar:nth-child(4) { animation-delay: 0.45s; height: 16px; }
+        @keyframes bounce {
+            0%, 100% { transform: scaleY(1); }
+            50%       { transform: scaleY(0.4); }
+        }
+        .word-highlight-demo {
+            background: rgba(96,165,250,0.25);
+            border-bottom: 2px solid #3b82f6;
+            border-radius: 2px;
+            padding: 0 2px;
+        }
+        .step-connector::before {
+            content: '';
+            position: absolute;
+            left: 19px;
+            top: 40px;
+            bottom: -16px;
+            width: 2px;
+            background: linear-gradient(to bottom, #6366f1, transparent);
+        }
+    </style>
+</head>
+
+<body class="theme-transition bg-slate-50 text-slate-900 dark:bg-zinc-950 dark:text-zinc-50 font-sans antialiased">
+
+    <!-- ─── Header ──────────────────────────────────────────────────────────── -->
+    <header class="theme-transition sticky top-0 z-50 backdrop-blur-md bg-white/80 dark:bg-zinc-950/80 border-b border-slate-200 dark:border-zinc-800">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center space-x-2">
+                <img src="papercast-extension/icons/icon48.png" alt="PaperCast" class="w-7 h-7">
+                <div>
+                    <span class="text-xl font-bold tracking-tight text-slate-900 dark:text-white">PaperCast</span>
+                    <span class="hidden sm:inline text-xs text-slate-500 dark:text-zinc-400 ml-2 font-normal">by TechnoBoost</span>
+                </div>
+            </div>
+            <nav class="hidden md:flex space-x-6 text-sm font-medium text-slate-600 dark:text-zinc-400">
+                <a href="#features"      class="hover:text-indigo-600 dark:hover:text-indigo-400 transition">Features</a>
+                <a href="#how-to-use"    class="hover:text-indigo-600 dark:hover:text-indigo-400 transition">How to Use</a>
+                <a href="#pdf-support"   class="hover:text-indigo-600 dark:hover:text-indigo-400 transition">PDF Support</a>
+                <a href="#highlighting"  class="hover:text-indigo-600 dark:hover:text-indigo-400 transition">Word Highlight</a>
+                <a href="#technical"     class="hover:text-indigo-600 dark:hover:text-indigo-400 transition">Technical</a>
+                <a href="#options"       class="hover:text-indigo-600 dark:hover:text-indigo-400 transition">Settings</a>
+            </nav>
+            <div class="flex items-center space-x-4">
+                <button id="theme-toggle" class="p-2 rounded-lg bg-slate-100 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-slate-600 dark:text-zinc-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition" aria-label="Toggle theme">
+                    <svg id="theme-toggle-light-icon" class="hidden w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <circle cx="12" cy="12" r="5"></circle>
+                        <line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line>
+                        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                        <line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line>
+                        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                    </svg>
+                    <svg id="theme-toggle-dark-icon" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                    </svg>
+                </button>
+                <a href="#download" class="theme-transition inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600 rounded-lg shadow-sm transition">Install Free</a>
+            </div>
+        </div>
+    </header>
+
+    <!-- ─── Hero ────────────────────────────────────────────────────────────── -->
+    <section class="relative overflow-hidden py-20 lg:py-32">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+            <h1 class="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-slate-900 dark:text-white max-w-4xl mx-auto leading-tight">
+                Turn Any Web Page into an <span class="text-indigo-600 dark:text-indigo-500">Audio Stream</span>. 100% Free.
+            </h1>
+            <p class="mt-6 text-lg sm:text-xl text-slate-600 dark:text-zinc-400 max-w-2xl mx-auto">
+                Listen to articles, selected text, PDFs, or your own notes — with live word-by-word highlighting. No API keys, no subscriptions, no data sent anywhere.
+            </p>
+
+            <div id="download" class="mt-10 flex flex-col sm:flex-row justify-center items-center gap-4">
+                <a href="#" class="theme-transition w-full sm:w-auto inline-flex items-center justify-center px-6 py-3 border border-transparent text-base font-medium rounded-xl text-white bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600 shadow transition-all duration-150">
+                    <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12s5.37 12 12 12 12-5.37 12-12S18.63 0 12 0zm0 1.2c2.6 0 4.98 1 6.8 2.65l-7.55 7.55c-.27-.08-.56-.13-.86-.13-1.65 0-3 1.35-3 3 0 .3.05.59.13.86L3.85 7.57C5.5 4.94 8.54 3.2 12 3.2z"/></svg>
+                    Get it for Chrome
+                </a>
+                <a href="#" class="theme-transition w-full sm:w-auto inline-flex items-center justify-center px-6 py-3 border border-slate-200 dark:border-zinc-800 text-base font-medium rounded-xl text-slate-900 dark:text-zinc-50 bg-white dark:bg-zinc-900 hover:bg-slate-50 dark:hover:bg-zinc-800 transition-all duration-150">
+                    <svg class="w-5 h-5 mr-2 text-orange-500" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm8.904 9.176c-.052-.404-.265-.89-.523-1.284.187.595.226 1.258.11 1.9-.304-1.298-1.072-2.343-2.022-3.19.825.807 1.34 1.83 1.408 2.977-.523-1.297-1.427-2.31-2.486-3.1-.148.885-.632 1.76-1.34 2.37.523-.977.678-2.146.407-3.237-.433.826-1.123 1.48-1.936 1.898a4.93 4.93 0 01.323-2.628c-.768.833-1.407 1.89-1.6 3.09a3.89 3.89 0 00-1.226-1.278c.032.748-.258 1.49-.806 2.013.142-.767.006-1.58-.426-2.22-.193.89-.787 1.638-1.58 2.064-.02-.755-.387-1.464-1.006-1.922a4.4 4.4 0 00-.478 2.66 4.13 4.13 0 01.697-2.317c-.755.516-1.323 1.323-1.523 2.258-.239-.632-.716-1.142-1.322-1.406.18.916-.168 1.87-.89 2.458a4.23 4.23 0 011.058-2.613c-.942.523-1.58 1.47-1.748 2.548-.123-.658-.516-1.232-1.077-1.542a4.57 4.57 0 00.129 3.49C1.4 12.568 1 11.238 1 9.8c0-5.413 4.387-9.8 9.8-9.8 6.136 0 10.994 5.097 10.104 9.176z"/></svg>
+                    Get it for Firefox
+                </a>
+            </div>
+
+            <!-- Panel preview mockup -->
+            <div class="mt-16 relative max-w-5xl mx-auto rounded-2xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4 shadow-2xl">
+                <div class="flex items-center justify-between border-b border-slate-100 dark:border-zinc-800 pb-3 mb-4">
+                    <div class="flex space-x-1.5">
+                        <div class="w-3 h-3 rounded-full bg-rose-500"></div>
+                        <div class="w-3 h-3 rounded-full bg-amber-500"></div>
+                        <div class="w-3 h-3 rounded-full bg-emerald-500"></div>
+                    </div>
+                    <div class="text-xs font-mono text-slate-500 dark:text-zinc-400">PaperCast — live word highlight while speaking</div>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 min-h-[350px]">
+                    <!-- Article area with word highlight demo -->
+                    <div class="md:col-span-2 text-left p-4 bg-slate-50 dark:bg-zinc-950 rounded-xl border border-slate-200/60 dark:border-zinc-800/60">
+                        <div class="h-5 w-1/2 bg-slate-300 dark:bg-zinc-700 rounded mb-5"></div>
+                        <p class="text-sm text-slate-700 dark:text-zinc-300 leading-7">
+                            Researchers have found that listening to content while
+                            <span class="word-highlight-demo text-blue-800 dark:text-blue-200 font-semibold">reading</span>
+                            simultaneously significantly improves retention and comprehension speed for most learners.
+                        </p>
+                        <div class="mt-3 space-y-2">
+                            <div class="h-3.5 w-full bg-slate-200 dark:bg-zinc-800 rounded"></div>
+                            <div class="h-3.5 w-5/6 bg-slate-200 dark:bg-zinc-800 rounded"></div>
+                            <div class="h-3.5 w-4/5 bg-slate-200 dark:bg-zinc-800 rounded"></div>
+                        </div>
+                        <div class="mt-4 p-3 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-900/40 text-xs text-blue-700 dark:text-blue-300 flex items-center gap-2">
+                            <svg class="w-3.5 h-3.5 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
+                            Blue underline follows every spoken word in real time
+                        </div>
+                    </div>
+                    <!-- Control panel -->
+                    <div class="theme-transition border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 rounded-xl p-4 flex flex-col justify-between shadow-lg">
+                        <div>
+                            <div class="flex items-center justify-between border-b border-slate-100 dark:border-zinc-800 pb-2 mb-4">
+                                <span class="font-bold text-sm text-slate-900 dark:text-zinc-50 flex items-center">
+                                    <span class="mr-1.5 flex items-center text-indigo-500 dark:text-indigo-400">
+                                        <span class="audio-bar"></span><span class="audio-bar mx-0.5"></span><span class="audio-bar"></span>
+                                    </span>
+                                    PaperCast
+                                </span>
+                                <div class="flex space-x-2 text-slate-400">
+                                    <button class="hover:text-slate-600 dark:hover:text-white transition"><svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M19 12H5"></path></svg></button>
+                                    <button class="hover:text-slate-600 dark:hover:text-white transition"><svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M6 18L18 6M6 6l12 12"></path></svg></button>
+                                </div>
+                            </div>
+                            <div class="space-y-2">
+                                <div class="p-2 rounded bg-indigo-50 dark:bg-indigo-950/40 text-xs text-indigo-600 dark:text-indigo-400 font-medium border border-indigo-100 dark:border-indigo-900/40 flex items-center">
+                                    <svg class="w-3.5 h-3.5 mr-1.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"></path></svg>
+                                    Full Article
+                                </div>
+                                <div class="h-7 w-full bg-slate-100 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded flex items-center justify-between px-2 text-xs text-slate-500">
+                                    <span>Google US English</span>
+                                    <svg class="w-3 h-3 text-slate-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M19 9l-7 7-7-7"></path></svg>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="pt-3 border-t border-slate-100 dark:border-zinc-800">
+                            <div class="flex justify-center items-center space-x-4 text-slate-600 dark:text-zinc-400 mb-2">
+                                <button class="hover:text-indigo-500 transition"><svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M11 18V6l-8.5 6 8.5 6zm.5-6l8.5 6V6l-8.5 6z"/></svg></button>
+                                <button class="w-8 h-8 rounded-full bg-indigo-600 text-white flex items-center justify-center shadow hover:bg-indigo-700 transition"><svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg></button>
+                                <button class="hover:text-indigo-500 transition"><svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M4 18l8.5-6L4 6v12zm9-12v12l8.5-6L13 6z"/></svg></button>
+                            </div>
+                            <div class="w-full bg-slate-200 dark:bg-zinc-800 h-1.5 rounded-full overflow-hidden">
+                                <div class="bg-indigo-600 dark:bg-indigo-500 h-full w-1/3"></div>
+                            </div>
+                            <div class="flex justify-between text-[10px] font-mono text-slate-500 dark:text-zinc-400 mt-1">
+                                <span>Chunk 4 / 12</span>
+                                <span class="text-indigo-500 flex items-center"><svg class="w-3 h-3 mr-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99"></path></svg>Repeat On</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ─── Features Grid ────────────────────────────────────────────────────── -->
+    <section id="features" class="theme-transition py-20 bg-white dark:bg-zinc-900 border-y border-slate-200 dark:border-zinc-800">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center max-w-2xl mx-auto mb-14">
+                <h2 class="text-3xl font-bold tracking-tight text-slate-900 dark:text-white sm:text-4xl">Everything You Need to Listen Smarter</h2>
+                <p class="mt-4 text-slate-600 dark:text-zinc-400">Six core capabilities, zero external dependencies.</p>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+
+                <!-- Full Article -->
+                <div class="theme-transition p-6 rounded-2xl bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 hover:border-indigo-300 dark:hover:border-indigo-700 hover:shadow-md transition duration-200">
+                    <div class="w-10 h-10 rounded-lg bg-indigo-100 dark:bg-indigo-950 flex items-center justify-center text-indigo-600 dark:text-indigo-400 mb-4">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"></path></svg>
+                    </div>
+                    <h3 class="text-base font-bold text-slate-900 dark:text-white">Full Article Mode</h3>
+                    <p class="mt-2 text-sm text-slate-600 dark:text-zinc-400 leading-relaxed">One click reads the entire article. Automatically strips nav bars, ads, footers, and comment sections — only the real content is spoken.</p>
+                    <div class="mt-3 text-xs text-indigo-600 dark:text-indigo-400 font-medium">Click extension icon → Full Article</div>
+                </div>
+
+                <!-- Selection -->
+                <div class="theme-transition p-6 rounded-2xl bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 hover:border-indigo-300 dark:hover:border-indigo-700 hover:shadow-md transition duration-200">
+                    <div class="w-10 h-10 rounded-lg bg-violet-100 dark:bg-violet-950 flex items-center justify-center text-violet-600 dark:text-violet-400 mb-4">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M20.25 3.75v4.5m0-4.5h-4.5m4.5 0L15 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 20.25v-4.5m0 4.5h-4.5m4.5 0L15 15"></path></svg>
+                    </div>
+                    <h3 class="text-base font-bold text-slate-900 dark:text-white">Selection Mode</h3>
+                    <p class="mt-2 text-sm text-slate-600 dark:text-zinc-400 leading-relaxed">Highlight any paragraph on any website, open the panel, and click Selection. Highlighting stays locked inside your selected range.</p>
+                    <div class="mt-3 text-xs text-violet-600 dark:text-violet-400 font-medium">Select text → open panel → Selection</div>
+                </div>
+
+                <!-- Word Highlighting -->
+                <div class="theme-transition p-6 rounded-2xl bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 hover:border-indigo-300 dark:hover:border-indigo-700 hover:shadow-md transition duration-200">
+                    <div class="w-10 h-10 rounded-lg bg-blue-100 dark:bg-blue-950 flex items-center justify-center text-blue-600 dark:text-blue-400 mb-4">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z"></path></svg>
+                    </div>
+                    <h3 class="text-base font-bold text-slate-900 dark:text-white">Live Word Highlighting</h3>
+                    <p class="mt-2 text-sm text-slate-600 dark:text-zinc-400 leading-relaxed">A blue underline tracks every spoken word in real time directly on the page. Auto-scrolls to keep the current word visible as reading progresses.</p>
+                    <div class="mt-3 text-xs text-blue-600 dark:text-blue-400 font-medium">Works automatically in Full Article and Selection modes</div>
+                </div>
+
+                <!-- PDF Reading -->
+                <div class="theme-transition p-6 rounded-2xl bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 hover:border-indigo-300 dark:hover:border-indigo-700 hover:shadow-md transition duration-200">
+                    <div class="w-10 h-10 rounded-lg bg-rose-100 dark:bg-rose-950 flex items-center justify-center text-rose-600 dark:text-rose-400 mb-4">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25M9 12.75h6m-6 3h6m3-9.75v15.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V5.25A2.25 2.25 0 015.25 3H15L19.5 7.5V12"></path></svg>
+                    </div>
+                    <h3 class="text-base font-bold text-slate-900 dark:text-white">PDF Reading</h3>
+                    <p class="mt-2 text-sm text-slate-600 dark:text-zinc-400 leading-relaxed">Open any PDF in your browser and click play. PaperCast extracts every page's text and reads it aloud — no copy-pasting required.</p>
+                    <div class="mt-3 text-xs text-rose-600 dark:text-rose-400 font-medium">Open PDF → click extension icon → Full Article</div>
+                </div>
+
+                <!-- Custom Text -->
+                <div class="theme-transition p-6 rounded-2xl bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 hover:border-indigo-300 dark:hover:border-indigo-700 hover:shadow-md transition duration-200">
+                    <div class="w-10 h-10 rounded-lg bg-emerald-100 dark:bg-emerald-950 flex items-center justify-center text-emerald-600 dark:text-emerald-400 mb-4">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10"></path></svg>
+                    </div>
+                    <h3 class="text-base font-bold text-slate-900 dark:text-white">Custom Text Input</h3>
+                    <p class="mt-2 text-sm text-slate-600 dark:text-zinc-400 leading-relaxed">Paste any text — meeting notes, emails, drafts — directly into the panel textarea and play instantly with Ctrl + Enter.</p>
+                    <div class="mt-3 text-xs text-emerald-600 dark:text-emerald-400 font-medium">Panel → Custom Text → paste → Ctrl+Enter</div>
+                </div>
+
+                <!-- Voice Settings -->
+                <div class="theme-transition p-6 rounded-2xl bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 hover:border-indigo-300 dark:hover:border-indigo-700 hover:shadow-md transition duration-200">
+                    <div class="w-10 h-10 rounded-lg bg-amber-100 dark:bg-amber-950 flex items-center justify-center text-amber-600 dark:text-amber-400 mb-4">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-9.75 0h9.75"></path></svg>
+                    </div>
+                    <h3 class="text-base font-bold text-slate-900 dark:text-white">Voice & Speed Controls</h3>
+                    <p class="mt-2 text-sm text-slate-600 dark:text-zinc-400 leading-relaxed">Choose from every installed browser voice. Adjust speed, pitch, and volume. Settings sync across devices via browser storage.</p>
+                    <div class="mt-3 text-xs text-amber-600 dark:text-amber-400 font-medium">Settings saved automatically in storage.sync</div>
+                </div>
+
+            </div>
+        </div>
+    </section>
+
+    <!-- ─── How to Use ───────────────────────────────────────────────────────── -->
+    <section id="how-to-use" class="theme-transition py-20 bg-slate-50 dark:bg-zinc-950">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center max-w-2xl mx-auto mb-14">
+                <h2 class="text-3xl font-bold tracking-tight text-slate-900 dark:text-white sm:text-4xl">How to Use PaperCast</h2>
+                <p class="mt-4 text-slate-600 dark:text-zinc-400">Three reading workflows for different situations.</p>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+
+                <!-- How to: Full Article -->
+                <div class="theme-transition bg-white dark:bg-zinc-900 rounded-2xl border border-slate-200 dark:border-zinc-800 p-6 shadow-sm">
+                    <div class="flex items-center gap-3 mb-6 pb-4 border-b border-slate-100 dark:border-zinc-800">
+                        <div class="w-9 h-9 rounded-lg bg-indigo-100 dark:bg-indigo-950 flex items-center justify-center text-indigo-600 dark:text-indigo-400 flex-shrink-0">
+                            <svg class="w-4.5 h-4.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"></path></svg>
+                        </div>
+                        <h3 class="font-bold text-slate-900 dark:text-white">Read Full Article</h3>
+                    </div>
+                    <ol class="space-y-4">
+                        <li class="relative flex gap-3 step-connector">
+                            <span class="flex-shrink-0 w-7 h-7 rounded-full bg-indigo-600 text-white text-xs font-bold flex items-center justify-center">1</span>
+                            <div class="pt-0.5">
+                                <p class="text-sm font-medium text-slate-900 dark:text-white">Open any article</p>
+                                <p class="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">Navigate to a blog post, news article, documentation page, or Wikipedia entry.</p>
+                            </div>
+                        </li>
+                        <li class="relative flex gap-3 step-connector">
+                            <span class="flex-shrink-0 w-7 h-7 rounded-full bg-indigo-600 text-white text-xs font-bold flex items-center justify-center">2</span>
+                            <div class="pt-0.5">
+                                <p class="text-sm font-medium text-slate-900 dark:text-white">Click the PaperCast icon</p>
+                                <p class="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">The panel slides in from the right side of the page.</p>
+                            </div>
+                        </li>
+                        <li class="relative flex gap-3 step-connector">
+                            <span class="flex-shrink-0 w-7 h-7 rounded-full bg-indigo-600 text-white text-xs font-bold flex items-center justify-center">3</span>
+                            <div class="pt-0.5">
+                                <p class="text-sm font-medium text-slate-900 dark:text-white">Click Full Article</p>
+                                <p class="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">Reading starts immediately. A blue highlight follows each word as it's spoken.</p>
+                            </div>
+                        </li>
+                        <li class="flex gap-3">
+                            <span class="flex-shrink-0 w-7 h-7 rounded-full bg-indigo-600 text-white text-xs font-bold flex items-center justify-center">4</span>
+                            <div class="pt-0.5">
+                                <p class="text-sm font-medium text-slate-900 dark:text-white">Use playback controls</p>
+                                <p class="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">Pause, skip sentences forward/back, enable repeat loop, or close and minimize to the pill.</p>
+                            </div>
+                        </li>
+                    </ol>
+                </div>
+
+                <!-- How to: Selection -->
+                <div class="theme-transition bg-white dark:bg-zinc-900 rounded-2xl border border-slate-200 dark:border-zinc-800 p-6 shadow-sm">
+                    <div class="flex items-center gap-3 mb-6 pb-4 border-b border-slate-100 dark:border-zinc-800">
+                        <div class="w-9 h-9 rounded-lg bg-violet-100 dark:bg-violet-950 flex items-center justify-center text-violet-600 dark:text-violet-400 flex-shrink-0">
+                            <svg class="w-4.5 h-4.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M20.25 3.75v4.5m0-4.5h-4.5m4.5 0L15 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 20.25v-4.5m0 4.5h-4.5m4.5 0L15 15"></path></svg>
+                        </div>
+                        <h3 class="font-bold text-slate-900 dark:text-white">Read a Selection</h3>
+                    </div>
+                    <ol class="space-y-4">
+                        <li class="relative flex gap-3 step-connector">
+                            <span class="flex-shrink-0 w-7 h-7 rounded-full bg-violet-600 text-white text-xs font-bold flex items-center justify-center">1</span>
+                            <div class="pt-0.5">
+                                <p class="text-sm font-medium text-slate-900 dark:text-white">Highlight text on the page</p>
+                                <p class="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">Click and drag to select any paragraph, section, or portion of the page.</p>
+                            </div>
+                        </li>
+                        <li class="relative flex gap-3 step-connector">
+                            <span class="flex-shrink-0 w-7 h-7 rounded-full bg-violet-600 text-white text-xs font-bold flex items-center justify-center">2</span>
+                            <div class="pt-0.5">
+                                <p class="text-sm font-medium text-slate-900 dark:text-white">Open the panel</p>
+                                <p class="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">Click the PaperCast icon. Do not click elsewhere — that clears your selection.</p>
+                            </div>
+                        </li>
+                        <li class="relative flex gap-3 step-connector">
+                            <span class="flex-shrink-0 w-7 h-7 rounded-full bg-violet-600 text-white text-xs font-bold flex items-center justify-center">3</span>
+                            <div class="pt-0.5">
+                                <p class="text-sm font-medium text-slate-900 dark:text-white">Click Selection</p>
+                                <p class="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">Only the selected text is read. Word highlighting stays within your selection boundary.</p>
+                            </div>
+                        </li>
+                        <li class="flex gap-3">
+                            <span class="flex-shrink-0 w-7 h-7 rounded-full bg-violet-600 text-white text-xs font-bold flex items-center justify-center">4</span>
+                            <div class="pt-0.5">
+                                <p class="text-sm font-medium text-slate-900 dark:text-white">Watch the highlight follow along</p>
+                                <p class="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">Each word gets a blue underline as it's spoken — only inside the area you selected.</p>
+                            </div>
+                        </li>
+                    </ol>
+                </div>
+
+                <!-- How to: Custom Text -->
+                <div class="theme-transition bg-white dark:bg-zinc-900 rounded-2xl border border-slate-200 dark:border-zinc-800 p-6 shadow-sm">
+                    <div class="flex items-center gap-3 mb-6 pb-4 border-b border-slate-100 dark:border-zinc-800">
+                        <div class="w-9 h-9 rounded-lg bg-emerald-100 dark:bg-emerald-950 flex items-center justify-center text-emerald-600 dark:text-emerald-400 flex-shrink-0">
+                            <svg class="w-4.5 h-4.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10"></path></svg>
+                        </div>
+                        <h3 class="font-bold text-slate-900 dark:text-white">Custom Text</h3>
+                    </div>
+                    <ol class="space-y-4">
+                        <li class="relative flex gap-3 step-connector">
+                            <span class="flex-shrink-0 w-7 h-7 rounded-full bg-emerald-600 text-white text-xs font-bold flex items-center justify-center">1</span>
+                            <div class="pt-0.5">
+                                <p class="text-sm font-medium text-slate-900 dark:text-white">Open the panel</p>
+                                <p class="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">Click the PaperCast icon on any tab.</p>
+                            </div>
+                        </li>
+                        <li class="relative flex gap-3 step-connector">
+                            <span class="flex-shrink-0 w-7 h-7 rounded-full bg-emerald-600 text-white text-xs font-bold flex items-center justify-center">2</span>
+                            <div class="pt-0.5">
+                                <p class="text-sm font-medium text-slate-900 dark:text-white">Expand Custom Text</p>
+                                <p class="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">Click the Custom Text section header in the panel to expand the textarea.</p>
+                            </div>
+                        </li>
+                        <li class="relative flex gap-3 step-connector">
+                            <span class="flex-shrink-0 w-7 h-7 rounded-full bg-emerald-600 text-white text-xs font-bold flex items-center justify-center">3</span>
+                            <div class="pt-0.5">
+                                <p class="text-sm font-medium text-slate-900 dark:text-white">Paste your text</p>
+                                <p class="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">Paste notes, emails, drafts, or any content. A character counter updates live.</p>
+                            </div>
+                        </li>
+                        <li class="flex gap-3">
+                            <span class="flex-shrink-0 w-7 h-7 rounded-full bg-emerald-600 text-white text-xs font-bold flex items-center justify-center">4</span>
+                            <div class="pt-0.5">
+                                <p class="text-sm font-medium text-slate-900 dark:text-white">Press Play or Ctrl + Enter</p>
+                                <p class="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">Reading starts from the beginning of your pasted content.</p>
+                            </div>
+                        </li>
+                    </ol>
+                </div>
+
+            </div>
+        </div>
+    </section>
+
+    <!-- ─── PDF Support ──────────────────────────────────────────────────────── -->
+    <section id="pdf-support" class="theme-transition py-20 bg-white dark:bg-zinc-900 border-y border-slate-200 dark:border-zinc-800">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center max-w-2xl mx-auto mb-14">
+                <span class="text-xs font-bold uppercase tracking-wider text-rose-600 dark:text-rose-400">Papers, reports, whitepapers</span>
+                <h2 class="text-3xl font-bold tracking-tight text-slate-900 dark:text-white sm:text-4xl mt-2">Read Any PDF Aloud</h2>
+                <p class="mt-4 text-slate-600 dark:text-zinc-400">Open a PDF in your browser tab and hit play — PaperCast reads every page from start to finish.</p>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-10 items-start">
+
+                <!-- Chrome column -->
+                <div class="theme-transition bg-slate-50 dark:bg-zinc-950 rounded-2xl border border-slate-200 dark:border-zinc-800 p-6">
+                    <div class="flex items-center gap-3 mb-5">
+                        <svg class="w-6 h-6 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12s5.37 12 12 12 12-5.37 12-12S18.63 0 12 0zm0 1.2c2.6 0 4.98 1 6.8 2.65l-7.55 7.55c-.27-.08-.56-.13-.86-.13-1.65 0-3 1.35-3 3 0 .3.05.59.13.86L3.85 7.57C5.5 4.94 8.54 3.2 12 3.2z"/></svg>
+                        <h3 class="font-bold text-slate-900 dark:text-white text-lg">Chrome</h3>
+                    </div>
+                    <p class="text-sm text-slate-600 dark:text-zinc-400 mb-5">Chrome's built-in PDF viewer is sandboxed — extensions can't read text from it directly. PaperCast works around this by fetching the PDF file's raw bytes and parsing it client-side using the bundled PDF.js library.</p>
+                    <div class="space-y-3">
+                        <div class="flex items-start gap-3 p-3 bg-white dark:bg-zinc-900 rounded-xl border border-slate-200 dark:border-zinc-800">
+                            <div class="w-6 h-6 rounded-full bg-emerald-100 dark:bg-emerald-950 flex items-center justify-center text-emerald-600 dark:text-emerald-400 flex-shrink-0 mt-0.5">
+                                <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"></path></svg>
+                            </div>
+                            <div>
+                                <p class="text-xs font-semibold text-slate-900 dark:text-white">How to use</p>
+                                <p class="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">Open any PDF URL in Chrome → click the PaperCast icon → click Full Article. You'll see a "Reading PDF… please wait" message while it fetches and parses.</p>
+                            </div>
+                        </div>
+                        <div class="flex items-start gap-3 p-3 bg-white dark:bg-zinc-900 rounded-xl border border-slate-200 dark:border-zinc-800">
+                            <div class="w-6 h-6 rounded-full bg-amber-100 dark:bg-amber-950 flex items-center justify-center text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5">
+                                <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"></path></svg>
+                            </div>
+                            <div>
+                                <p class="text-xs font-semibold text-slate-900 dark:text-white">Limitations</p>
+                                <p class="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">Scanned PDFs (image-only) have no text to extract and will show an error. Password-protected PDFs also cannot be read.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Firefox column -->
+                <div class="theme-transition bg-slate-50 dark:bg-zinc-950 rounded-2xl border border-slate-200 dark:border-zinc-800 p-6">
+                    <div class="flex items-center gap-3 mb-5">
+                        <svg class="w-6 h-6 text-orange-500 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm8.904 9.176c-.052-.404-.265-.89-.523-1.284.187.595.226 1.258.11 1.9-.304-1.298-1.072-2.343-2.022-3.19.825.807 1.34 1.83 1.408 2.977-.523-1.297-1.427-2.31-2.486-3.1-.148.885-.632 1.76-1.34 2.37.523-.977.678-2.146.407-3.237-.433.826-1.123 1.48-1.936 1.898a4.93 4.93 0 01.323-2.628c-.768.833-1.407 1.89-1.6 3.09a3.89 3.89 0 00-1.226-1.278c.032.748-.258 1.49-.806 2.013.142-.767.006-1.58-.426-2.22-.193.89-.787 1.638-1.58 2.064-.02-.755-.387-1.464-1.006-1.922a4.4 4.4 0 00-.478 2.66 4.13 4.13 0 01.697-2.317c-.755.516-1.323 1.323-1.523 2.258-.239-.632-.716-1.142-1.322-1.406.18.916-.168 1.87-.89 2.458a4.23 4.23 0 011.058-2.613c-.942.523-1.58 1.47-1.748 2.548-.123-.658-.516-1.232-1.077-1.542a4.57 4.57 0 00.129 3.49C1.4 12.568 1 11.238 1 9.8c0-5.413 4.387-9.8 9.8-9.8 6.136 0 10.994 5.097 10.104 9.176z"/></svg>
+                        <h3 class="font-bold text-slate-900 dark:text-white text-lg">Firefox</h3>
+                    </div>
+                    <p class="text-sm text-slate-600 dark:text-zinc-400 mb-5">Firefox uses its own PDF.js viewer which renders each page as HTML with selectable text spans. PaperCast can read these directly — no extra library or fetch step needed.</p>
+                    <div class="space-y-3">
+                        <div class="flex items-start gap-3 p-3 bg-white dark:bg-zinc-900 rounded-xl border border-slate-200 dark:border-zinc-800">
+                            <div class="w-6 h-6 rounded-full bg-emerald-100 dark:bg-emerald-950 flex items-center justify-center text-emerald-600 dark:text-emerald-400 flex-shrink-0 mt-0.5">
+                                <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"></path></svg>
+                            </div>
+                            <div>
+                                <p class="text-xs font-semibold text-slate-900 dark:text-white">How to use</p>
+                                <p class="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">Open any PDF in Firefox → wait for all pages to finish rendering → click the PaperCast icon → click Full Article.</p>
+                            </div>
+                        </div>
+                        <div class="flex items-start gap-3 p-3 bg-white dark:bg-zinc-900 rounded-xl border border-slate-200 dark:border-zinc-800">
+                            <div class="w-6 h-6 rounded-full bg-blue-100 dark:bg-blue-950 flex items-center justify-center text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5">
+                                <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z"></path></svg>
+                            </div>
+                            <div>
+                                <p class="text-xs font-semibold text-slate-900 dark:text-white">Tip</p>
+                                <p class="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">If the PDF shows an empty result, scroll through the full document first to let Firefox render all pages, then try again.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ─── Word Highlighting ────────────────────────────────────────────────── -->
+    <section id="highlighting" class="theme-transition py-20 bg-slate-50 dark:bg-zinc-950">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+                <div>
+                    <span class="text-xs font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400">Follows every word</span>
+                    <h2 class="text-3xl font-bold tracking-tight text-slate-900 dark:text-white sm:text-4xl mt-2">Live Word-by-Word Highlighting</h2>
+                    <p class="mt-4 text-slate-600 dark:text-zinc-400 leading-relaxed">
+                        As each word is spoken, a subtle blue underline appears directly on the page — no DOM modifications, just a fixed-position overlay that moves to the right spot using the browser's Range API.
+                    </p>
+                    <div class="mt-6 space-y-4">
+                        <div class="flex items-start gap-3">
+                            <div class="w-5 h-5 rounded-full bg-blue-100 dark:bg-blue-950 flex items-center justify-center text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5">
+                                <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"></path></svg>
+                            </div>
+                            <p class="text-sm text-slate-600 dark:text-zinc-400"><strong class="text-slate-900 dark:text-white">Full Article mode</strong> — highlights scan forward through the entire article, never backtracking.</p>
+                        </div>
+                        <div class="flex items-start gap-3">
+                            <div class="w-5 h-5 rounded-full bg-blue-100 dark:bg-blue-950 flex items-center justify-center text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5">
+                                <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"></path></svg>
+                            </div>
+                            <p class="text-sm text-slate-600 dark:text-zinc-400"><strong class="text-slate-900 dark:text-white">Selection mode</strong> — highlight is scoped strictly inside the selected text range. Words outside your selection are never highlighted.</p>
+                        </div>
+                        <div class="flex items-start gap-3">
+                            <div class="w-5 h-5 rounded-full bg-blue-100 dark:bg-blue-950 flex items-center justify-center text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5">
+                                <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"></path></svg>
+                            </div>
+                            <p class="text-sm text-slate-600 dark:text-zinc-400"><strong class="text-slate-900 dark:text-white">Auto-scroll</strong> — when the current word is near the edge of the viewport, the page gently scrolls to keep it visible.</p>
+                        </div>
+                        <div class="flex items-start gap-3">
+                            <div class="w-5 h-5 rounded-full bg-blue-100 dark:bg-blue-950 flex items-center justify-center text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5">
+                                <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"></path></svg>
+                            </div>
+                            <p class="text-sm text-slate-600 dark:text-zinc-400"><strong class="text-slate-900 dark:text-white">Non-destructive</strong> — no changes are made to the page's DOM. The highlight is an overlay that disappears when playback stops.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Visual demo -->
+                <div class="theme-transition bg-white dark:bg-zinc-900 rounded-2xl border border-slate-200 dark:border-zinc-800 p-6 shadow-xl">
+                    <div class="text-xs font-mono text-slate-500 dark:text-zinc-400 mb-4 flex justify-between">
+                        <span>Article text — word 7 of 18 currently spoken</span>
+                        <span class="text-blue-500">● Live</span>
+                    </div>
+                    <div class="text-sm text-slate-700 dark:text-zinc-300 leading-8 space-y-3">
+                        <p>
+                            The study showed that spaced repetition combined with
+                            <span class="word-highlight-demo text-blue-800 dark:text-blue-200 font-semibold">active</span>
+                            recall produces significantly better long-term memory outcomes than passive reading alone.
+                        </p>
+                        <p class="text-slate-500 dark:text-zinc-500">
+                            Furthermore, the researchers noted that students who used both visual and auditory channels simultaneously retained up to 40% more information after one week.
+                        </p>
+                    </div>
+                    <div class="mt-5 pt-4 border-t border-slate-100 dark:border-zinc-800 grid grid-cols-3 gap-3 text-center text-xs">
+                        <div class="p-2 rounded-lg bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800">
+                            <div class="text-slate-500 dark:text-zinc-400 mb-1">Mode</div>
+                            <div class="font-bold text-slate-900 dark:text-white">Full Article</div>
+                        </div>
+                        <div class="p-2 rounded-lg bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800">
+                            <div class="text-slate-500 dark:text-zinc-400 mb-1">Word</div>
+                            <div class="font-bold text-blue-600 dark:text-blue-400">active</div>
+                        </div>
+                        <div class="p-2 rounded-lg bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800">
+                            <div class="text-slate-500 dark:text-zinc-400 mb-1">Progress</div>
+                            <div class="font-bold text-slate-900 dark:text-white">7 / 18</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ─── Technical / Code Safeguards ─────────────────────────────────────── -->
+    <section id="technical" class="theme-transition py-20 bg-white dark:bg-zinc-900 border-y border-slate-200 dark:border-zinc-800">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center max-w-3xl mx-auto mb-14">
+                <h2 class="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">Built for Technical Content</h2>
+                <p class="mt-4 text-slate-600 dark:text-zinc-400">Standard TTS tools read code symbols aloud verbatim. PaperCast skips them cleanly.</p>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
+                <div class="space-y-5">
+                    <div class="theme-transition p-5 rounded-xl bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800">
+                        <h4 class="font-bold text-slate-900 dark:text-white">Code Block Safeguards</h4>
+                        <p class="mt-1.5 text-sm text-slate-600 dark:text-zinc-400">
+                            Identifies <code class="bg-slate-200 dark:bg-zinc-800 px-1 rounded text-xs font-mono">&lt;pre&gt;</code> and <code class="bg-slate-200 dark:bg-zinc-800 px-1 rounded text-xs font-mono">&lt;code&gt;</code> elements instantly. Instead of spelling out symbols and brackets, inserts a clean verbal placeholder: <code class="bg-slate-200 dark:bg-zinc-800 px-1 rounded text-indigo-600 dark:text-indigo-400 text-xs">[Code block skipped]</code>.
+                        </p>
+                    </div>
+                    <div class="theme-transition p-5 rounded-xl bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800">
+                        <h4 class="font-bold text-slate-900 dark:text-white">Math & Formula Filtering</h4>
+                        <p class="mt-1.5 text-sm text-slate-600 dark:text-zinc-400">
+                            Bypasses KaTeX, MathJax, and inline LaTeX expressions with a soft <code class="bg-slate-200 dark:bg-zinc-800 px-1 rounded text-indigo-600 dark:text-indigo-400 text-xs">[Math expression skipped]</code> indicator so reading velocity stays uninterrupted.
+                        </p>
+                    </div>
+                    <div class="theme-transition p-5 rounded-xl bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800">
+                        <h4 class="font-bold text-slate-900 dark:text-white">Table & Figure Summarization</h4>
+                        <p class="mt-1.5 text-sm text-slate-600 dark:text-zinc-400">
+                            Tables are replaced with a row and column count summary. Figures emit only their caption text. Neither is read cell-by-cell.
+                        </p>
+                    </div>
+                    <div class="theme-transition p-5 rounded-xl bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800">
+                        <h4 class="font-bold text-slate-900 dark:text-white">Background Playback (Chrome)</h4>
+                        <p class="mt-1.5 text-sm text-slate-600 dark:text-zinc-400">
+                            Chrome routes TTS through the background service worker. Switch tabs or minimize the window — playback continues uninterrupted without any active page connection.
+                        </p>
+                    </div>
+                </div>
+                <div class="theme-transition border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950 rounded-2xl p-6 shadow-inner">
+                    <div class="text-xs font-mono text-slate-500 dark:text-zinc-400 mb-4">// Before vs. After — same page content</div>
+                    <div class="space-y-4">
+                        <div>
+                            <span class="text-xs font-bold text-rose-500 uppercase tracking-wide flex items-center gap-1">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9.75 9.75l4.5 4.5m0-4.5l-4.5 4.5M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                Without PaperCast:
+                            </span>
+                            <div class="mt-1 p-3 bg-rose-50 dark:bg-rose-950/20 text-rose-700 dark:text-rose-400 rounded-lg text-xs font-mono border border-rose-100 dark:border-rose-900/30">
+                                "less than pre greater than const api equals open paren close paren equals greater than open brace..."
+                            </div>
+                        </div>
+                        <div class="pt-1">
+                            <span class="text-xs font-bold text-emerald-500 uppercase tracking-wide flex items-center gap-1">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                With PaperCast:
+                            </span>
+                            <div class="mt-1 p-3 bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-400 rounded-lg text-xs font-medium border border-emerald-100 dark:border-emerald-900/30">
+                                "Code block skipped. Setting up the primary API endpoint returns a promise that resolves..."
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ─── Options / Settings ───────────────────────────────────────────────── -->
+    <section id="options" class="theme-transition py-20 bg-slate-50 dark:bg-zinc-950 border-b border-slate-200 dark:border-zinc-800">
+        <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center max-w-2xl mx-auto mb-12">
+                <span class="text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">Persistent across sessions</span>
+                <h2 class="text-3xl font-bold tracking-tight text-slate-900 dark:text-white mt-1">Settings Dashboard</h2>
+                <p class="mt-2 text-sm text-slate-600 dark:text-zinc-400">
+                    Access via the extension's options page. All preferences are stored in your browser's sync storage and follow you across devices.
+                </p>
+            </div>
+            <div class="theme-transition bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-xl overflow-hidden p-6 space-y-6">
+                <div class="flex items-center space-x-2 border-b border-slate-100 dark:border-zinc-800 pb-4">
+                    <span class="text-indigo-500 dark:text-indigo-400">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.43l-1.003.767c-.3.23-.442.615-.417.994.004.055.006.11.006.166 0 .055-.002.11-.006.165-.025.379.117.764.417.995l1.003.767a1.125 1.125 0 01.26 1.43l-1.296 2.247a1.125 1.125 0 01-1.37.49l-1.216-.456c-.356-.133-.751-.072-1.076.124a6.57 6.57 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.94-1.11.94h-2.594c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.37-.49l-1.296-2.247a1.125 1.125 0 01.26-1.43l1.002-.767c.301-.23.443-.615.418-.994a6.22 6.22 0 01-.007-.166c0-.055.002-.11.007-.165.025-.379-.117-.764-.418-.995L3.894 14.2a1.125 1.125 0 01-.26-1.43l1.296-2.247a1.125 1.125 0 011.37-.49l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.645-.869L9.594 3.94z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                    </span>
+                    <h3 class="font-bold text-base text-slate-900 dark:text-white">PaperCast Settings</h3>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="space-y-1">
+                        <label class="block text-xs font-bold text-slate-500 dark:text-zinc-400 uppercase tracking-wider">Voice</label>
+                        <div class="w-full bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-lg p-2.5 text-xs text-slate-700 dark:text-zinc-300 flex justify-between items-center">
+                            <span>Google US English (Native)</span>
+                            <svg class="w-3 h-3 text-slate-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M19 9l-7 7-7-7"></path></svg>
+                        </div>
+                        <p class="text-xs text-slate-500 dark:text-zinc-400 pt-1">Chose from all voices installed in your browser.</p>
+                    </div>
+                    <div class="space-y-1">
+                        <div class="flex justify-between text-xs font-bold text-slate-500 dark:text-zinc-400 uppercase tracking-wider">
+                            <span>Speed</span>
+                            <span class="text-indigo-600 dark:text-indigo-400 font-mono">1.25×</span>
+                        </div>
+                        <div class="w-full bg-slate-200 dark:bg-zinc-800 h-2 rounded-lg mt-3 relative">
+                            <div class="bg-indigo-600 dark:bg-indigo-500 h-full w-1/3 rounded-lg"></div>
+                            <div class="absolute w-4 h-4 bg-white border-2 border-indigo-600 dark:border-indigo-500 rounded-full top-1/2 -translate-y-1/2 left-1/3 shadow cursor-pointer"></div>
+                        </div>
+                        <p class="text-xs text-slate-500 dark:text-zinc-400 pt-1">Rate from 0.5× (slow) to 3× (fast).</p>
+                    </div>
+                </div>
+                <div class="border-t border-slate-100 dark:border-zinc-800 pt-5 space-y-3">
+                    <h4 class="text-xs font-bold text-slate-500 dark:text-zinc-400 uppercase tracking-wider">Content Rules</h4>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div class="flex items-center justify-between p-3 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl">
+                            <span class="text-xs font-medium text-slate-700 dark:text-zinc-300">Skip code blocks</span>
+                            <span class="text-emerald-500 font-bold text-xs flex items-center"><svg class="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"></path></svg>Enabled</span>
+                        </div>
+                        <div class="flex items-center justify-between p-3 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl">
+                            <span class="text-xs font-medium text-slate-700 dark:text-zinc-300">Skip math expressions</span>
+                            <span class="text-emerald-500 font-bold text-xs flex items-center"><svg class="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"></path></svg>Enabled</span>
+                        </div>
+                        <div class="flex items-center justify-between p-3 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl">
+                            <span class="text-xs font-medium text-slate-700 dark:text-zinc-300">Repeat / loop mode</span>
+                            <span class="text-slate-500 dark:text-zinc-400 font-bold text-xs">Toggle in panel</span>
+                        </div>
+                        <div class="flex items-center justify-between p-3 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl">
+                            <span class="text-xs font-medium text-slate-700 dark:text-zinc-300">Auto-start on open</span>
+                            <span class="text-slate-500 dark:text-zinc-400 font-bold text-xs">Off by default</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ─── Footer ──────────────────────────────────────────────────────────── -->
+    <footer class="theme-transition bg-white dark:bg-zinc-950 border-t border-slate-200 dark:border-zinc-900 py-8 text-center text-xs text-slate-500 dark:text-zinc-400">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-center gap-2 mb-2">
+                <img src="papercast-extension/icons/icon48.png" alt="PaperCast" class="w-5 h-5 opacity-60">
+                <span class="font-medium text-slate-500 dark:text-zinc-400">PaperCast</span>
+                <span class="text-slate-300 dark:text-zinc-600">·</span>
+                <span class="text-slate-500 dark:text-zinc-400">by TechnoBoost</span>
+            </div>
+            <p>Free Select-to-Speech Reader. Uses only your browser's built-in voices — no external servers, no API keys.</p>
+            <p class="mt-1">&copy; 2025 TechnoBoost. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <script>
+        const themeToggleBtn = document.getElementById('theme-toggle');
+        const darkIcon = document.getElementById('theme-toggle-dark-icon');
+        const lightIcon = document.getElementById('theme-toggle-light-icon');
+        const htmlElement = document.documentElement;
+
+        themeToggleBtn.addEventListener('click', () => {
+            if (htmlElement.classList.contains('dark')) {
+                htmlElement.classList.remove('dark');
+                darkIcon.classList.add('hidden');
+                lightIcon.classList.remove('hidden');
+            } else {
+                htmlElement.classList.add('dark');
+                darkIcon.classList.remove('hidden');
+                lightIcon.classList.add('hidden');
+            }
+        });
+    </script>
+</body>
+
+</html>
